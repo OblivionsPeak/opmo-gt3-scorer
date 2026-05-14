@@ -3,37 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GT3 Championship Scorer</title>
+<title>Operation Motorsport — GT3 Championship Scorer</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon.ico">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d26;
-    --surface2: #222535;
-    --border: #2e3147;
-    --accent: #e8b84b;
-    --text: #e2e4ee;
-    --muted: #6b7195;
-    --danger: #e85050;
-    --success: #50c878;
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --accent: #c4a87a;
+    --accent-hover: #b8956a;
+    --accent-dim: rgba(196,168,122,.12);
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --danger: #f85149;
+    --success: #3fb950;
     --pro: #e85050;
     --proben: #e89050;
     --ben: #50c878;
     --open: #4b8fe8;
   }
 
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg);
+    background-image: linear-gradient(rgba(13,17,23,.82),rgba(13,17,23,.82)), url('Spa-2.jpg');
+    background-size: cover;
+    background-position: center 40%;
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(196,168,122,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(196,168,122,.018) 1px, transparent 1px);
+    background-size: 52px 52px;
+    pointer-events: none; z-index: 0;
+  }
+  .page-wrap { position: relative; z-index: 1; }
 
   /* ---- Auth / Setup screens ---- */
   .fullscreen {
     min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
   }
   .auth-box {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 36px; width: 100%; max-width: 420px;
+    background: rgba(22,27,34,.92); border: 1px solid rgba(196,168,122,.2); border-radius: 14px;
+    padding: 36px; width: 100%; max-width: 420px; backdrop-filter: blur(6px);
   }
-  .auth-box .logo { font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 0.06em; margin-bottom: 6px; }
+  .auth-box .logo { margin-bottom: 12px; text-align: center; }
+  .auth-box .logo img { height: 48px; width: auto; margin: 0 auto; }
   .auth-box .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
   .auth-box .field { margin-bottom: 16px; }
   .auth-box label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
@@ -46,10 +69,12 @@
 
   /* ---- Main app ---- */
   header {
-    background: var(--surface); border-bottom: 2px solid var(--accent);
-    padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 56px;
+    background: rgba(22,27,34,.95); border-bottom: 2px solid var(--accent);
+    padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 60px;
+    backdrop-filter: blur(6px); position: relative; z-index: 2;
   }
-  .logo { font-weight: 700; font-size: 16px; color: var(--accent); letter-spacing: 0.05em; white-space: nowrap; }
+  .logo img { height: 36px; width: auto; display: block; }
+  .logo-text { font-weight: 700; font-size: 16px; color: var(--accent); letter-spacing: 0.05em; white-space: nowrap; }
   nav { display: flex; gap: 4px; flex: 1; }
   nav button { background: none; border: none; color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; }
   nav button:hover { background: var(--surface2); color: var(--text); }
@@ -66,7 +91,7 @@
   h2 { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
   h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .card { background: rgba(22,27,34,.88); border: 1px solid rgba(196,168,122,.15); border-radius: 10px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(4px); }
   .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
   label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
   input, select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 14px; outline: none; width: 100%; }
@@ -166,8 +191,8 @@
 <!-- Setup (Firebase not configured) -->
 <div id="screen-setup" class="fullscreen" style="display:none">
   <div class="auth-box" style="max-width:580px">
-    <div class="logo">&#9651; GT3 SCORER</div>
-    <div class="subtitle">One-time Firebase setup required</div>
+    <div class="logo"><img src="OpMo_eMotorsport_League_red_TPBG_NEG.png" alt="Operation eMotorsport League"></div>
+    <div class="subtitle" style="text-align:center;margin-bottom:20px;">One-time Firebase setup required</div>
 
     <div class="setup-step">
       <span class="step-num">1</span>
@@ -221,8 +246,8 @@ service cloud.firestore {
 <!-- Login -->
 <div id="screen-login" class="fullscreen" style="display:none">
   <div class="auth-box">
-    <div class="logo">&#9651; GT3 SCORER</div>
-    <div class="subtitle">Admin Login</div>
+    <div class="logo"><img src="OpMo_eMotorsport_League_red_TPBG_NEG.png" alt="Operation eMotorsport League"></div>
+    <div class="subtitle" style="text-align:center;margin-bottom:20px;">Championship Scoring — Admin Login</div>
     <div id="login-form">
       <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="admin@example.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="field"><label>Password</label><input type="password" id="login-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
@@ -247,7 +272,7 @@ service cloud.firestore {
 <!-- Main App -->
 <div id="screen-app" style="display:none">
   <header>
-    <span class="logo">&#9651; GT3</span>
+    <div class="logo"><img src="OpMo_eMotorsport_League_red_TPBG_NEG.png" alt="Operation eMotorsport League"></div>
     <nav>
       <button class="active" onclick="showTab('roster')">Roster</button>
       <button onclick="showTab('rounds')">Rounds</button>
@@ -261,7 +286,7 @@ service cloud.firestore {
     </div>
   </header>
 
-  <div class="main">
+  <div class="page-wrap"><div class="main">
 
     <!-- ROSTER -->
     <div id="tab-roster" class="tab active">
@@ -281,6 +306,15 @@ service cloud.firestore {
           </div>
           <button class="btn-primary" onclick="addDriver()">Add Driver</button>
         </div>
+      </div>
+      <div class="card">
+        <h3>Import from Sign-Up Sheet</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Pull registered drivers directly from the Google Sheets sign-up data.</p>
+        <div class="row" style="align-items:flex-end">
+          <div class="field field-sm"><label>Season</label><input type="text" id="import-season" placeholder="Season 13"></div>
+          <button class="btn-primary" onclick="importFromSheets()">&#8659; Import from Sheets</button>
+        </div>
+        <div id="import-status" style="margin-top:10px;font-size:13px;color:var(--muted);display:none"></div>
       </div>
       <div class="card" style="padding:0;overflow:hidden"><div id="roster-classes"></div></div>
     </div>
@@ -338,7 +372,7 @@ service cloud.firestore {
     </div>
 
   </div>
-</div>
+</div></div>
 
 <!-- Modal -->
 <div id="modal-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
@@ -1124,6 +1158,106 @@ function renderAll() {
   renderStandingsTabs();
   renderStandingsContent();
   renderSettings();
+}
+
+// ============================================================
+// GOOGLE SHEETS IMPORT
+// ============================================================
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzGRfVj4DRoL9NcMpTVFfswYoqabm3WP1gATAZGqDPY-RC1HfSfXmrbL_2P8mIpNC1X/exec';
+
+async function importFromSheets() {
+  const season = document.getElementById('import-season').value.trim() || 'Season 13';
+  const status = document.getElementById('import-status');
+  status.style.display = 'block';
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Fetching from Google Sheets…';
+
+  try {
+    const res = await fetch(`${SHEETS_URL}?action=drivers&season=${encodeURIComponent(season)}`);
+    const data = await res.json();
+    const drivers = data.drivers || [];
+
+    if (!drivers.length) {
+      status.style.color = 'var(--danger)';
+      status.textContent = `No drivers found for "${season}". Check the season name matches exactly.`;
+      return;
+    }
+
+    status.style.display = 'none';
+    showImportSheetsModal(drivers);
+  } catch(e) {
+    status.style.color = 'var(--danger)';
+    status.textContent = 'Could not reach Google Sheets. The Apps Script may need updating — see Settings for instructions.';
+  }
+}
+
+function showImportSheetsModal(drivers) {
+  const rows = drivers.map((d, i) => {
+    const alreadyIn = roster.find(r =>
+      r.name.toLowerCase() === `${d.firstName} ${d.lastName}`.toLowerCase() ||
+      (d.driverId && r.custId && r.custId === String(d.driverId))
+    );
+    const clsOpts = ['Pro','Pro-Ben','Beneficiary','Open'].map(c =>
+      `<option value="${c}" ${c===d.driverClass?'selected':''}>${c}</option>`).join('');
+    return `<tr style="${alreadyIn?'opacity:0.45':''}">
+      <td style="text-align:center"><input type="checkbox" id="imp-chk-${i}" ${alreadyIn?'':'checked'} style="width:auto"></td>
+      <td>${esc(d.firstName)} ${esc(d.lastName)}</td>
+      <td>${esc(d.driverId||'—')}</td>
+      <td><select id="imp-cls-${i}" style="font-size:12px;padding:4px 8px">${clsOpts}</select></td>
+      ${alreadyIn?'<td style="font-size:11px;color:var(--muted)">Already in roster</td>':'<td></td>'}
+    </tr>`;
+  }).join('');
+
+  showModal(`
+    <h3>Import Drivers from Sheets</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">
+      ${drivers.length} driver(s) found. Uncheck any you don't want to import. Drivers already in the roster are greyed out.
+    </p>
+    <div style="overflow-x:auto;max-height:360px;overflow-y:auto">
+      <table>
+        <thead><tr><th></th><th>Name</th><th>Driver ID</th><th>Class</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="commitSheetsImport(${JSON.stringify(drivers).replace(/"/g,'&quot;')})">Import Selected</button>
+    </div>
+  `);
+}
+
+async function commitSheetsImport(drivers) {
+  const toImport = drivers.filter((d, i) => {
+    const chk = document.getElementById('imp-chk-' + i);
+    return chk && chk.checked;
+  });
+
+  if (!toImport.length) { toast('No drivers selected', 'error'); return; }
+
+  setSyncing(true);
+  let added = 0;
+  for (let i = 0; i < drivers.length; i++) {
+    const chk = document.getElementById('imp-chk-' + i);
+    if (!chk || !chk.checked) continue;
+    const d = drivers[i];
+    const cls = document.getElementById('imp-cls-' + i)?.value || d.driverClass || 'Open';
+    const name = `${d.firstName} ${d.lastName}`.trim();
+    const dup = roster.find(r => r.name.toLowerCase() === name.toLowerCase());
+    if (dup) continue;
+    try {
+      await db.collection('roster').add({
+        name,
+        custId: String(d.driverId || ''),
+        cls,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      added++;
+    } catch(e) { console.error('Import error', e); }
+  }
+
+  setSyncing(false);
+  closeModal();
+  toast(`Imported ${added} driver(s)`, 'success');
 }
 
 // ============================================================
