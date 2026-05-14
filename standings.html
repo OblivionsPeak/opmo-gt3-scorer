@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpMo GT3 Championship Standings</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #1c2128; --border: #30363d;
+    --accent: #c4a87a; --text: #e6edf3; --muted: #7d8590;
+    --danger: #f85149; --success: #3fb950;
+    --pro: #e85050; --proben: #e89050; --ben: #50c878; --open: #4b8fe8;
+  }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg);
+    background-image: linear-gradient(rgba(13,17,23,.82),rgba(13,17,23,.82)), url('Spa-2.jpg');
+    background-size: cover; background-position: center 40%; background-attachment: fixed;
+    color: var(--text); min-height: 100vh; font-size: 14px;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(196,168,122,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(196,168,122,.018) 1px, transparent 1px);
+    background-size: 52px 52px; pointer-events: none; z-index: 0;
+  }
+  .page-wrap { position: relative; z-index: 1; }
+  header {
+    background: rgba(22,27,34,.95); border-bottom: 2px solid var(--accent);
+    padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 60px;
+    backdrop-filter: blur(6px);
+  }
+  .logo img { height: 36px; width: auto; display: block; }
+  .header-title { font-weight: 700; font-size: 16px; color: var(--accent); letter-spacing: 0.05em; }
+  .live-badge {
+    margin-left: auto; display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted);
+  }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  .section-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .section-tab {
+    padding: 7px 18px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .section-tab.active { background: var(--accent); color: #0f1117; border-color: var(--accent); }
+  .card { background: rgba(22,27,34,.9); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; backdrop-filter: blur(4px); }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface2); color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(196,168,122,.04); }
+  .pos-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 12px; font-weight: 800; }
+  .pos-1 { background: linear-gradient(135deg,#ffd700,#b8860b); color: #0d1117; }
+  .pos-2 { background: linear-gradient(135deg,#c0c0c0,#808080); color: #0d1117; }
+  .pos-3 { background: linear-gradient(135deg,#cd7f32,#8b4513); color: #fff; }
+  .pos-other { background: var(--surface2); color: var(--muted); }
+  .points-dropped { color: var(--muted); text-decoration: line-through; text-align: center; }
+  .points-cell { color: var(--accent); font-weight: 600; text-align: center; }
+  .total-cell { color: var(--accent); font-weight: 800; font-size: 15px; text-align: center; }
+  .class-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+  .class-Pro { background: rgba(232,80,80,.15); color: var(--pro); border: 1px solid rgba(232,80,80,.3); }
+  .class-Pro-Ben { background: rgba(232,144,80,.15); color: var(--proben); border: 1px solid rgba(232,144,80,.3); }
+  .class-Beneficiary { background: rgba(80,200,120,.15); color: var(--ben); border: 1px solid rgba(80,200,120,.3); }
+  .class-Open { background: rgba(75,143,232,.15); color: var(--open); border: 1px solid rgba(75,143,232,.3); }
+  .empty-state { padding: 40px; text-align: center; color: var(--muted); }
+  .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; color: var(--muted); gap: 10px; }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 12px; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <header>
+    <div class="logo"><img src="OpMo_eMotorsport_League_red_TPBG_NEG.png" alt="OpMo"></div>
+    <div class="header-title">GT3 Championship Standings</div>
+    <div class="live-badge"><div class="live-dot"></div> Live</div>
+  </header>
+
+  <div class="container">
+    <div class="section-tabs" id="class-tabs"></div>
+    <div id="standings-output"><div class="loading"><div class="spinner"></div> Loading standings…</div></div>
+  </div>
+
+  <footer>
+    Operation eMotorsport League &nbsp;·&nbsp; <a href="https://oblivionspeak.github.io/opmo-gt3-scorer/" target="_blank">Admin Panel</a>
+  </footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBCmOk5BeUOcX7y_0araxAqco_hJ8E4H94",
+  authDomain: "operation-motorsport-scoring.firebaseapp.com",
+  projectId: "operation-motorsport-scoring",
+  storageBucket: "operation-motorsport-scoring.firebasestorage.app",
+  messagingSenderId: "464083122390",
+  appId: "1:464083122390:web:12f78d594c8ea51fa1b177"
+};
+const CLASS_NAMES = ['Pro', 'Pro-Ben', 'Beneficiary', 'Open'];
+const DEFAULT_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+
+let roster = [], rounds = [], settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2 };
+let activeClass = CLASS_NAMES[0];
+
+db.collection('settings').doc('config').onSnapshot(snap => {
+  if (snap.exists) {
+    const d = snap.data();
+    settings.pointsTable = d.pointsTable || [...DEFAULT_POINTS];
+    settings.dropRounds = d.dropRounds ?? 2;
+  }
+  render();
+});
+db.collection('roster').orderBy('name').onSnapshot(snap => {
+  roster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  render();
+});
+db.collection('rounds').orderBy('createdAt').onSnapshot(snap => {
+  rounds = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  render();
+});
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function computeStandings(cls) {
+  const drivers = roster.filter(d => d.cls === cls);
+  const pts = settings.pointsTable;
+  const drop = settings.dropRounds;
+  const roundPoints = {};
+  for (const rnd of rounds) {
+    const cr = (rnd.results || [])
+      .filter(r => { const d = roster.find(x => x.id === r.driverId); return d && d.cls === cls; })
+      .sort((a, b) => (a.dnf?1:0) - (b.dnf?1:0) || a.overallPos - b.overallPos);
+    cr.forEach((r, i) => {
+      if (!roundPoints[r.driverId]) roundPoints[r.driverId] = {};
+      roundPoints[r.driverId][rnd.id] = r.dnf ? 0 : (pts[i] || 0);
+    });
+  }
+  return drivers.map(d => {
+    const allPts = rounds.map(rnd => roundPoints[d.id]?.[rnd.id] ?? null);
+    const scored = allPts.filter(p => p !== null);
+    let dropIndices = [], total = 0;
+    if (drop > 0 && scored.length > drop) {
+      const dropVals = [...scored].sort((a,b) => a-b).slice(0, drop);
+      const usedDrops = [...dropVals];
+      allPts.forEach((p, i) => {
+        if (p === null) return;
+        const idx = usedDrops.indexOf(p);
+        if (idx !== -1) { dropIndices.push(i); usedDrops.splice(idx, 1); }
+      });
+      total = allPts.reduce((s, p, i) => s + (p !== null && !dropIndices.includes(i) ? p : 0), 0);
+    } else {
+      total = scored.reduce((a,b) => a+b, 0);
+    }
+    return { driver: d, allPts, total, dropIndices };
+  }).sort((a,b) => b.total - a.total);
+}
+
+function renderTabs() {
+  document.getElementById('class-tabs').innerHTML = CLASS_NAMES.map(cls =>
+    `<button class="section-tab ${cls===activeClass?'active':''}" onclick="setClass('${cls}')">${cls}</button>`
+  ).join('');
+}
+
+function setClass(cls) { activeClass = cls; render(); }
+
+function render() {
+  renderTabs();
+  const el = document.getElementById('standings-output');
+  if (!rounds.length) {
+    el.innerHTML = '<div class="empty-state"><p>No rounds have been recorded yet.</p></div>';
+    return;
+  }
+  const standings = computeStandings(activeClass);
+  if (!standings.length) {
+    el.innerHTML = '<div class="empty-state"><p>No drivers in this class.</p></div>';
+    return;
+  }
+  const roundHeaders = rounds.map((rnd, i) =>
+    `<th style="text-align:center" title="${esc(rnd.name)}">${rnd.name.length > 12 ? 'R'+(i+1) : esc(rnd.name)}</th>`
+  ).join('');
+  const rows = standings.map((s, pos) => {
+    const posBadge = pos===0?'pos-1':pos===1?'pos-2':pos===2?'pos-3':'pos-other';
+    const roundCells = s.allPts.map((p, i) => {
+      if (p === null) return '<td style="color:var(--muted);text-align:center">—</td>';
+      const isDrop = s.dropIndices.includes(i);
+      return `<td class="${isDrop?'points-dropped':'points-cell'}" style="text-align:center">${p}${isDrop?' ▾':''}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="text-align:center"><span class="pos-badge ${posBadge}">${pos+1}</span></td>
+      <td>${esc(s.driver.name)}</td>
+      ${roundCells}
+      <td class="total-cell">${s.total}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="card" style="overflow-x:auto;">
+      <table>
+        <thead><tr><th style="text-align:center">Pos</th><th>Driver</th>${roundHeaders}<th style="text-align:center">Total</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${settings.dropRounds > 0 ? `<p style="color:var(--muted);font-size:12px;margin-top:8px;">▾ Dropped rounds not counted in total (worst ${settings.dropRounds}).</p>` : ''}
+  `;
+}
+</script>
+</body>
+</html>

@@ -336,6 +336,10 @@ service cloud.firestore {
     <!-- STANDINGS -->
     <div id="tab-standings" class="tab">
       <h2>Championship Standings</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button class="btn-secondary btn-sm" onclick="postToDiscord()">📣 Post to Discord</button>
+        <a href="standings.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;">🔗 Public Standings Page</a>
+      </div>
       <div class="section-tabs" id="standings-class-tabs"></div>
       <div id="standings-content"></div>
     </div>
@@ -354,19 +358,36 @@ service cloud.firestore {
             <button class="btn-primary btn-sm" onclick="savePointsTable()">Save Points Table</button>
           </div>
         </div>
-        <div class="card">
-          <h3>Drop Rounds</h3>
-          <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Worst N rounds excluded from each driver's total.</p>
-          <div style="display:flex;gap:10px;align-items:flex-end">
-            <div class="field field-sm"><label>Drop worst N</label><input type="number" id="drop-rounds-input" min="0" max="10"></div>
-            <button class="btn-primary btn-sm" onclick="saveDropRounds()">Save</button>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="card">
+            <h3>Drop Rounds</h3>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Worst N rounds excluded from each driver's total.</p>
+            <div style="display:flex;gap:10px;align-items:flex-end">
+              <div class="field field-sm"><label>Drop worst N</label><input type="number" id="drop-rounds-input" min="0" max="10"></div>
+              <button class="btn-primary btn-sm" onclick="saveDropRounds()">Save</button>
+            </div>
           </div>
-          <hr class="divider">
-          <h3>Admin Accounts</h3>
-          <p style="color:var(--muted);font-size:13px;margin-bottom:10px;">To add admins, share the app URL and have them register with the Create Account option on the login screen.</p>
-          <hr class="divider">
-          <h3>Reconfigure Firebase</h3>
-          <button class="btn-secondary btn-sm" onclick="reconfigureFirebase()">Update Firebase Config</button>
+          <div class="card">
+            <h3>Admin Whitelist</h3>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:12px;">Only these emails can create an account. Leave empty to allow anyone.</p>
+            <div id="allowed-emails-list"></div>
+            <div style="display:flex;gap:8px;margin-top:12px;">
+              <input type="email" id="new-allowed-email" placeholder="admin@example.com" style="flex:1">
+              <button class="btn-secondary btn-sm" onclick="addAllowedEmail()">Add</button>
+            </div>
+            <button class="btn-primary btn-sm" style="margin-top:10px;" onclick="saveAllowedEmails()">Save Whitelist</button>
+          </div>
+          <div class="card">
+            <h3>Discord Webhook</h3>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:10px;">Paste your Discord webhook URL to enable the Post to Discord button on the Standings tab.</p>
+            <input type="url" id="discord-webhook-input" placeholder="https://discord.com/api/webhooks/..." style="width:100%;margin-bottom:10px;">
+            <button class="btn-primary btn-sm" onclick="saveDiscordWebhook()">Save Webhook</button>
+            <p style="color:var(--muted);font-size:12px;margin-top:10px;">To create a webhook: Discord channel → Edit → Integrations → Webhooks → New Webhook → Copy URL.</p>
+          </div>
+          <div class="card">
+            <h3>Reconfigure Firebase</h3>
+            <button class="btn-secondary btn-sm" onclick="reconfigureFirebase()">Update Firebase Config</button>
+          </div>
         </div>
       </div>
     </div>
@@ -413,7 +434,7 @@ let unsubSettings = null;
 // In-memory cache (populated by Firestore listeners)
 let roster = [];
 let rounds = [];
-let settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2 };
+let settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2, allowedEmails: [], discordWebhook: '' };
 
 // Temp store for in-progress import
 let pendingImport = null;
@@ -502,6 +523,14 @@ async function doRegister() {
   if (pw !== pw2) { document.getElementById('auth-error').textContent = 'Passwords do not match'; return; }
   if (pw.length < 6) { document.getElementById('auth-error').textContent = 'Password must be at least 6 characters'; return; }
   try {
+    const cfgSnap = await db.collection('settings').doc('config').get();
+    const allowed = cfgSnap.exists ? (cfgSnap.data().allowedEmails || []) : [];
+    if (allowed.length > 0 && !allowed.map(e => e.toLowerCase()).includes(email.toLowerCase())) {
+      document.getElementById('auth-error').textContent = 'This email is not authorised to create an account.';
+      return;
+    }
+  } catch(e) { /* first-time setup — no config yet, allow registration */ }
+  try {
     await auth.createUserWithEmailAndPassword(email, pw);
   } catch(e) {
     document.getElementById('auth-error').textContent = friendlyAuthError(e.code);
@@ -552,6 +581,8 @@ function startListeners() {
       const data = snap.data();
       settings.pointsTable = data.pointsTable || [...DEFAULT_POINTS];
       settings.dropRounds = data.dropRounds !== undefined ? data.dropRounds : 2;
+      settings.allowedEmails = data.allowedEmails || [];
+      settings.discordWebhook = data.discordWebhook || '';
     }
     renderAll();
   }, err => console.error('Settings listener error', err));
@@ -1087,6 +1118,9 @@ function renderSettings() {
     </tr>`).join('');
   const dropInput = document.getElementById('drop-rounds-input');
   if (dropInput) dropInput.value = settings.dropRounds;
+  renderAllowedEmails();
+  const webhookInput = document.getElementById('discord-webhook-input');
+  if (webhookInput && !webhookInput.matches(':focus')) webhookInput.value = settings.discordWebhook;
 }
 
 function addPointsRow() {
@@ -1115,6 +1149,94 @@ async function saveDropRounds() {
     await db.collection('settings').doc('config').set({ dropRounds: val, pointsTable: settings.pointsTable }, { merge: true });
     toast('Drop rounds saved', 'success');
   } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+// ============================================================
+// ADMIN WHITELIST
+// ============================================================
+let localAllowedEmails = [];
+
+function renderAllowedEmails() {
+  localAllowedEmails = [...settings.allowedEmails];
+  renderAllowedEmailsLocal();
+}
+
+function renderAllowedEmailsLocal() {
+  const container = document.getElementById('allowed-emails-list');
+  if (!container) return;
+  if (!localAllowedEmails.length) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:13px;">No emails added — anyone can register.</p>';
+    return;
+  }
+  container.innerHTML = localAllowedEmails.map((email, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;">${esc(email)}</span>
+      <button class="btn-danger btn-sm" onclick="removeAllowedEmail(${i})">Remove</button>
+    </div>`).join('');
+}
+
+function addAllowedEmail() {
+  const input = document.getElementById('new-allowed-email');
+  const email = input.value.trim().toLowerCase();
+  if (!email) return;
+  if (localAllowedEmails.includes(email)) { toast('Email already in list', 'error'); return; }
+  localAllowedEmails.push(email);
+  input.value = '';
+  renderAllowedEmailsLocal();
+}
+
+function removeAllowedEmail(i) {
+  localAllowedEmails.splice(i, 1);
+  renderAllowedEmailsLocal();
+}
+
+async function saveAllowedEmails() {
+  setSyncing(true);
+  try {
+    await db.collection('settings').doc('config').set({ allowedEmails: localAllowedEmails }, { merge: true });
+    toast('Whitelist saved', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+// ============================================================
+// DISCORD
+// ============================================================
+async function saveDiscordWebhook() {
+  const url = document.getElementById('discord-webhook-input').value.trim();
+  setSyncing(true);
+  try {
+    await db.collection('settings').doc('config').set({ discordWebhook: url }, { merge: true });
+    toast('Webhook saved', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+async function postToDiscord() {
+  if (!settings.discordWebhook) { toast('No webhook configured — add one in Settings', 'error'); return; }
+  let content = '**🏆 OpMo GT3 Championship Standings**\n';
+  if (rounds.length) content += `*${rounds.length} round${rounds.length !== 1 ? 's' : ''} completed*\n`;
+  content += '\n';
+  for (const cls of CLASS_NAMES) {
+    const standings = computeStandings(cls);
+    if (!standings.length) continue;
+    content += `**${cls}**\n`;
+    standings.forEach((s, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      content += `${medal} ${s.driver.name} — ${s.total} pts\n`;
+    });
+    content += '\n';
+  }
+  try {
+    setSyncing(true);
+    await fetch(settings.discordWebhook, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    toast('Posted to Discord!', 'success');
+  } catch(e) { toast('Failed to post to Discord', 'error'); }
   setSyncing(false);
 }
 
