@@ -368,6 +368,15 @@ service cloud.firestore {
             </div>
           </div>
           <div class="card">
+            <h3>Bonus Points</h3>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Extra points awarded per race. Set to 0 to disable.</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+              <div class="field field-sm"><label>Fast Lap</label><input type="number" id="fast-lap-pts-input" min="0" max="25"></div>
+              <div class="field field-sm"><label>Safe Race</label><input type="number" id="safe-race-pts-input" min="0" max="25"></div>
+              <button class="btn-primary btn-sm" onclick="saveBonusPoints()">Save</button>
+            </div>
+          </div>
+          <div class="card">
             <h3>Admin Whitelist</h3>
             <p style="color:var(--muted);font-size:13px;margin-bottom:12px;">Only these emails can create an account. Leave empty to allow anyone.</p>
             <div id="allowed-emails-list"></div>
@@ -434,7 +443,7 @@ let unsubSettings = null;
 // In-memory cache (populated by Firestore listeners)
 let roster = [];
 let rounds = [];
-let settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2, allowedEmails: [], discordWebhook: '' };
+let settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2, allowedEmails: [], discordWebhook: '', fastLapPoints: 1, safeRacePoints: 1 };
 
 // Temp store for in-progress import
 let pendingImport = null;
@@ -583,6 +592,8 @@ function startListeners() {
       settings.dropRounds = data.dropRounds !== undefined ? data.dropRounds : 2;
       settings.allowedEmails = data.allowedEmails || [];
       settings.discordWebhook = data.discordWebhook || '';
+      settings.fastLapPoints = data.fastLapPoints !== undefined ? data.fastLapPoints : 1;
+      settings.safeRacePoints = data.safeRacePoints !== undefined ? data.safeRacePoints : 1;
     }
     renderAll();
   }, err => console.error('Settings listener error', err));
@@ -761,6 +772,7 @@ function renderRounds() {
           <button class="btn-danger btn-sm" onclick="deleteRound('${rnd.id}')">Delete Round</button>
         </div>
         ${renderRoundResults(rnd)}
+        ${hasResults ? renderBonusSection(rnd) : ''}
       </div>
     </div>`;
   }).join('');
@@ -809,6 +821,57 @@ function renderRoundResults(rnd) {
     html += `</tbody></table></div>`;
   }
   return html;
+}
+
+function renderBonusSection(rnd) {
+  const participants = (rnd.results || []).map(r => {
+    const d = roster.find(x => x.id === r.driverId);
+    return d ? { id: r.driverId, name: d.name } : null;
+  }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+  if (!participants.length) return '';
+
+  const flPts = settings.fastLapPoints;
+  const srPts = settings.safeRacePoints;
+  const fastOpts = ['<option value="">— None —</option>',
+    ...participants.map(p => `<option value="${p.id}" ${rnd.fastLapDriverId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`)
+  ].join('');
+  const safeChecks = participants.map(p =>
+    `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;white-space:nowrap;">
+      <input type="checkbox" id="sr-${rnd.id}-${p.id}" ${(rnd.safeRaceDriverIds||[]).includes(p.id)?'checked':''} style="width:auto;">
+      ${esc(p.name)}</label>`
+  ).join('');
+
+  return `
+    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Bonus Points</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="field">
+          <label>⚡ Fast Lap (+${flPts} pt${flPts!==1?'s':''})</label>
+          <select id="fl-${rnd.id}" style="min-width:180px">${fastOpts}</select>
+        </div>
+        <div class="field">
+          <label>🛡 Safe Race (+${srPts} pt${srPts!==1?'s':''} each)</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:6px;">${safeChecks}</div>
+        </div>
+      </div>
+      <button class="btn-primary btn-sm" onclick="saveBonuses('${rnd.id}')">Save Bonuses</button>
+    </div>`;
+}
+
+async function saveBonuses(roundId) {
+  const rnd = rounds.find(r => r.id === roundId);
+  if (!rnd) return;
+  const fastLapDriverId = document.getElementById('fl-' + roundId)?.value || null;
+  const safeRaceDriverIds = (rnd.results || []).map(r => r.driverId).filter(id => {
+    const el = document.getElementById('sr-' + roundId + '-' + id);
+    return el && el.checked;
+  });
+  setSyncing(true);
+  try {
+    await db.collection('rounds').doc(roundId).update({ fastLapDriverId: fastLapDriverId || null, safeRaceDriverIds });
+    toast('Bonuses saved', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
 }
 
 async function removeResult(roundId, driverId) {
@@ -1041,6 +1104,18 @@ function computeStandings(cls) {
       if (!roundPoints[r.driverId]) roundPoints[r.driverId] = {};
       roundPoints[r.driverId][rnd.id] = r.dnf ? 0 : (pts[i] || 0);
     });
+    // Fast lap bonus
+    if (rnd.fastLapDriverId) {
+      const d = roster.find(x => x.id === rnd.fastLapDriverId);
+      if (d && d.cls === cls && roundPoints[rnd.fastLapDriverId]?.[rnd.id] !== undefined)
+        roundPoints[rnd.fastLapDriverId][rnd.id] += settings.fastLapPoints;
+    }
+    // Safe race bonus
+    for (const srId of (rnd.safeRaceDriverIds || [])) {
+      const d = roster.find(x => x.id === srId);
+      if (d && d.cls === cls && roundPoints[srId]?.[rnd.id] !== undefined)
+        roundPoints[srId][rnd.id] += settings.safeRacePoints;
+    }
   }
 
   return drivers.map(d => {
@@ -1105,8 +1180,7 @@ function renderStandingsContent() {
 // ============================================================
 let localPointsTable = [...DEFAULT_POINTS];
 
-function renderSettings() {
-  localPointsTable = [...settings.pointsTable];
+function renderPointsTableBody() {
   const tbody = document.getElementById('points-table-body');
   if (!tbody) return;
   tbody.innerHTML = localPointsTable.map((pts, i) => `
@@ -1116,21 +1190,30 @@ function renderSettings() {
         onchange="localPointsTable[${i}]=parseInt(this.value)||0"></td>
       <td style="text-align:right"><button class="btn-danger btn-sm" onclick="removePointsRow(${i})">&#215;</button></td>
     </tr>`).join('');
+}
+
+function renderSettings() {
+  localPointsTable = [...settings.pointsTable];
+  renderPointsTableBody();
   const dropInput = document.getElementById('drop-rounds-input');
   if (dropInput) dropInput.value = settings.dropRounds;
   renderAllowedEmails();
   const webhookInput = document.getElementById('discord-webhook-input');
   if (webhookInput && !webhookInput.matches(':focus')) webhookInput.value = settings.discordWebhook;
+  const flInput = document.getElementById('fast-lap-pts-input');
+  if (flInput && !flInput.matches(':focus')) flInput.value = settings.fastLapPoints;
+  const srInput = document.getElementById('safe-race-pts-input');
+  if (srInput && !srInput.matches(':focus')) srInput.value = settings.safeRacePoints;
 }
 
 function addPointsRow() {
   localPointsTable.push(0);
-  renderSettings();
+  renderPointsTableBody();
 }
 
 function removePointsRow(i) {
   localPointsTable.splice(i, 1);
-  renderSettings();
+  renderPointsTableBody();
 }
 
 async function savePointsTable() {
@@ -1148,6 +1231,17 @@ async function saveDropRounds() {
   try {
     await db.collection('settings').doc('config').set({ dropRounds: val, pointsTable: settings.pointsTable }, { merge: true });
     toast('Drop rounds saved', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+async function saveBonusPoints() {
+  const fl = parseInt(document.getElementById('fast-lap-pts-input').value) || 0;
+  const sr = parseInt(document.getElementById('safe-race-pts-input').value) || 0;
+  setSyncing(true);
+  try {
+    await db.collection('settings').doc('config').set({ fastLapPoints: fl, safeRacePoints: sr }, { merge: true });
+    toast('Bonus points saved', 'success');
   } catch(e) { toast('Error: ' + e.message, 'error'); }
   setSyncing(false);
 }

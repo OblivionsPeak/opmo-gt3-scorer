@@ -109,7 +109,7 @@ const DEFAULT_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
 
-let roster = [], rounds = [], settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2 };
+let roster = [], rounds = [], settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2, fastLapPoints: 1, safeRacePoints: 1 };
 let activeClass = CLASS_NAMES[0];
 
 db.collection('settings').doc('config').onSnapshot(snap => {
@@ -117,6 +117,8 @@ db.collection('settings').doc('config').onSnapshot(snap => {
     const d = snap.data();
     settings.pointsTable = d.pointsTable || [...DEFAULT_POINTS];
     settings.dropRounds = d.dropRounds ?? 2;
+    settings.fastLapPoints = d.fastLapPoints !== undefined ? d.fastLapPoints : 1;
+    settings.safeRacePoints = d.safeRacePoints !== undefined ? d.safeRacePoints : 1;
   }
   render();
 });
@@ -146,6 +148,16 @@ function computeStandings(cls) {
       if (!roundPoints[r.driverId]) roundPoints[r.driverId] = {};
       roundPoints[r.driverId][rnd.id] = r.dnf ? 0 : (pts[i] || 0);
     });
+    if (rnd.fastLapDriverId) {
+      const d = roster.find(x => x.id === rnd.fastLapDriverId);
+      if (d && d.cls === cls && roundPoints[rnd.fastLapDriverId]?.[rnd.id] !== undefined)
+        roundPoints[rnd.fastLapDriverId][rnd.id] += settings.fastLapPoints;
+    }
+    for (const srId of (rnd.safeRaceDriverIds || [])) {
+      const d = roster.find(x => x.id === srId);
+      if (d && d.cls === cls && roundPoints[srId]?.[rnd.id] !== undefined)
+        roundPoints[srId][rnd.id] += settings.safeRacePoints;
+    }
   }
   return drivers.map(d => {
     const allPts = rounds.map(rnd => roundPoints[d.id]?.[rnd.id] ?? null);
