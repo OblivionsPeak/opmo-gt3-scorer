@@ -394,6 +394,15 @@ service cloud.firestore {
 const CLASS_NAMES = ['Pro', 'Pro-Ben', 'Beneficiary', 'Open'];
 const DEFAULT_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const CONFIG_KEY = 'gt3_firebase_config';
+const HARDCODED_CONFIG = {
+  apiKey: "AIzaSyBCmOk5BeUOcX7y_0araxAqco_hJ8E4H94",
+  authDomain: "operation-motorsport-scoring.firebaseapp.com",
+  projectId: "operation-motorsport-scoring",
+  storageBucket: "operation-motorsport-scoring.firebasestorage.app",
+  messagingSenderId: "464083122390",
+  appId: "1:464083122390:web:12f78d594c8ea51fa1b177",
+  measurementId: "G-V58GYE2QP0"
+};
 
 let db = null;
 let auth = null;
@@ -1263,12 +1272,7 @@ async function commitSheetsImport(drivers) {
 // ============================================================
 // INIT
 // ============================================================
-const savedConfig = getSavedConfig();
-if (savedConfig) {
-  initFirebase(savedConfig);
-} else {
-  showScreen('setup');
-}
+initFirebase(HARDCODED_CONFIG);
 
 const dateInput = document.getElementById('rnd-date');
 if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
