@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GT3 Championship Scorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d26;
+    --surface2: #222535;
+    --border: #2e3147;
+    --accent: #e8b84b;
+    --text: #e2e4ee;
+    --muted: #6b7195;
+    --danger: #e85050;
+    --success: #50c878;
+    --pro: #e85050;
+    --proben: #e89050;
+    --ben: #50c878;
+    --open: #4b8fe8;
+  }
+
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* ---- Auth / Setup screens ---- */
+  .fullscreen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .auth-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 36px; width: 100%; max-width: 420px;
+  }
+  .auth-box .logo { font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 0.06em; margin-bottom: 6px; }
+  .auth-box .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .auth-box .field { margin-bottom: 16px; }
+  .auth-box label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .auth-box input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 7px; font-size: 14px; outline: none; }
+  .auth-box input:focus { border-color: var(--accent); }
+  .auth-box .btn-primary { width: 100%; padding: 11px; border-radius: 7px; border: none; background: var(--accent); color: #0f1117; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 8px; }
+  .auth-box .btn-primary:hover { opacity: 0.9; }
+  .auth-box .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 20px; }
+  .auth-box .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 13px; padding: 0; text-decoration: underline; }
+
+  /* ---- Main app ---- */
+  header {
+    background: var(--surface); border-bottom: 2px solid var(--accent);
+    padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 56px;
+  }
+  .logo { font-weight: 700; font-size: 16px; color: var(--accent); letter-spacing: 0.05em; white-space: nowrap; }
+  nav { display: flex; gap: 4px; flex: 1; }
+  nav button { background: none; border: none; color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+  nav button:hover { background: var(--surface2); color: var(--text); }
+  nav button.active { background: var(--accent); color: #0f1117; }
+
+  .user-info { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .user-email { font-size: 12px; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-logout { background: none; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .btn-logout:hover { color: var(--text); border-color: var(--muted); }
+
+  .main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  h2 { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+  h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  input, select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 14px; outline: none; width: 100%; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .field { flex: 1; min-width: 140px; }
+  .field-sm { min-width: 100px; max-width: 160px; }
+
+  button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity 0.15s; white-space: nowrap; }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .btn-primary { background: var(--accent); color: #0f1117; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .class-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .class-Pro { background: rgba(232,80,80,0.2); color: var(--pro); }
+  .class-Pro-Ben { background: rgba(232,144,80,0.2); color: var(--proben); }
+  .class-Beneficiary { background: rgba(80,200,120,0.2); color: var(--ben); }
+  .class-Open { background: rgba(75,143,232,0.2); color: var(--open); }
+
+  .pos-badge { display: inline-block; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-size: 12px; font-weight: 700; }
+  .pos-1 { background: #ffd700; color: #000; }
+  .pos-2 { background: #c0c0c0; color: #000; }
+  .pos-3 { background: #cd7f32; color: #fff; }
+  .pos-other { background: var(--surface2); color: var(--muted); }
+
+  .points-cell { font-weight: 700; color: var(--accent); }
+  .points-dropped { font-weight: 700; color: var(--muted); text-decoration: line-through; }
+  .total-cell { font-weight: 800; font-size: 15px; color: var(--accent); }
+
+  .section-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .section-tab { padding: 7px 16px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); cursor: pointer; font-size: 13px; color: var(--muted); }
+  .section-tab.active { background: var(--accent); color: #0f1117; border-color: var(--accent); font-weight: 600; }
+
+  .round-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; }
+  .round-item-header { padding: 14px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+  .round-item-header:hover { background: rgba(255,255,255,0.02); border-radius: 10px; }
+  .round-item-body { padding: 0 20px 16px; display: none; }
+  .round-item-body.open { display: block; }
+  .round-number { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .round-name { font-weight: 600; font-size: 15px; flex: 1; }
+  .round-meta { font-size: 12px; color: var(--muted); }
+  .chevron { color: var(--muted); transition: transform 0.2s; }
+  .chevron.open { transform: rotate(90deg); }
+
+  .upload-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); color: var(--text); background: rgba(232,184,75,0.04); }
+
+  .match-row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 6px; background: var(--surface2); margin-bottom: 8px; }
+  .match-name { flex: 1; font-size: 13px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 520px; width: 100%; max-height: 80vh; overflow-y: auto; }
+  .modal h3 { font-size: 18px; color: var(--text); text-transform: none; letter-spacing: 0; margin-bottom: 16px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+
+  .sync-indicator { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+  .sync-dot.syncing { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+  .setup-step { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+  .setup-step .step-num { display: inline-block; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #000; font-size: 12px; font-weight: 700; text-align: center; line-height: 24px; margin-right: 8px; }
+  .setup-step code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: monospace; }
+
+  pre { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-size: 12px; font-family: monospace; overflow-x: auto; white-space: pre-wrap; color: var(--accent); margin: 10px 0; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .loading-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 15px; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="screen-loading" class="loading-screen">Loading...</div>
+
+<!-- Setup (Firebase not configured) -->
+<div id="screen-setup" class="fullscreen" style="display:none">
+  <div class="auth-box" style="max-width:580px">
+    <div class="logo">&#9651; GT3 SCORER</div>
+    <div class="subtitle">One-time Firebase setup required</div>
+
+    <div class="setup-step">
+      <span class="step-num">1</span>
+      Go to <strong>console.firebase.google.com</strong> → Create a project (or use existing)
+    </div>
+    <div class="setup-step">
+      <span class="step-num">2</span>
+      In the project: <strong>Build → Firestore Database</strong> → Create database (start in production mode)
+    </div>
+    <div class="setup-step">
+      <span class="step-num">3</span>
+      <strong>Authentication → Sign-in method</strong> → Enable <strong>Email/Password</strong>
+    </div>
+    <div class="setup-step">
+      <span class="step-num">4</span>
+      <strong>Project Settings → Your apps</strong> → Add a Web app → Copy the <code>firebaseConfig</code> object
+    </div>
+    <div class="setup-step">
+      <span class="step-num">5</span>
+      Set Firestore rules (<strong>Firestore → Rules</strong>) to:
+      <pre>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</pre>
+    </div>
+    <div class="setup-step">
+      <span class="step-num">6</span>
+      Paste your config below and save. Only needs to be done once.
+    </div>
+
+    <div class="field" style="margin-top:16px">
+      <label>Firebase Config JSON</label>
+      <textarea id="setup-config" rows="8" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:6px;font-family:monospace;font-size:12px;resize:vertical" placeholder='{
+  "apiKey": "...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+    </div>
+    <button class="btn-primary" onclick="saveFirebaseConfig()" style="width:100%;margin-top:8px">Save & Connect</button>
+    <div class="error-msg" id="setup-error"></div>
+  </div>
+</div>
+
+<!-- Login -->
+<div id="screen-login" class="fullscreen" style="display:none">
+  <div class="auth-box">
+    <div class="logo">&#9651; GT3 SCORER</div>
+    <div class="subtitle">Admin Login</div>
+    <div id="login-form">
+      <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="admin@example.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn-primary" onclick="doLogin()">Sign In</button>
+      <div style="margin-top:14px;font-size:13px;color:var(--muted)">
+        No account? <button class="link-btn" onclick="showRegister()">Create one</button>
+      </div>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="admin@example.com"></div>
+      <div class="field"><label>Password (min 6 chars)</label><input type="password" id="reg-password"></div>
+      <div class="field"><label>Confirm Password</label><input type="password" id="reg-password2" onkeydown="if(event.key==='Enter')doRegister()"></div>
+      <button class="btn-primary" onclick="doRegister()">Create Account</button>
+      <div style="margin-top:14px;font-size:13px;color:var(--muted)">
+        Already have an account? <button class="link-btn" onclick="showLogin()">Sign in</button>
+      </div>
+    </div>
+    <div class="error-msg" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="screen-app" style="display:none">
+  <header>
+    <span class="logo">&#9651; GT3</span>
+    <nav>
+      <button class="active" onclick="showTab('roster')">Roster</button>
+      <button onclick="showTab('rounds')">Rounds</button>
+      <button onclick="showTab('standings')">Standings</button>
+      <button onclick="showTab('settings')">Settings</button>
+    </nav>
+    <div class="user-info">
+      <div class="sync-indicator"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Live</span></div>
+      <span class="user-email" id="user-email-display"></span>
+      <button class="btn-logout" onclick="doLogout()">Sign out</button>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <!-- ROSTER -->
+    <div id="tab-roster" class="tab active">
+      <h2>Driver Roster</h2>
+      <div class="card">
+        <h3>Add Driver</h3>
+        <div class="row">
+          <div class="field"><label>Driver Name</label><input type="text" id="r-name" placeholder="First Last" onkeydown="if(event.key==='Enter')addDriver()"></div>
+          <div class="field field-sm"><label>Customer ID <span style="color:var(--muted)">(optional)</span></label><input type="text" id="r-custid" placeholder="123456"></div>
+          <div class="field field-sm"><label>Class</label>
+            <select id="r-class">
+              <option value="Pro">Pro</option>
+              <option value="Pro-Ben">Pro-Ben</option>
+              <option value="Beneficiary">Beneficiary</option>
+              <option value="Open">Open</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="addDriver()">Add Driver</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden"><div id="roster-classes"></div></div>
+    </div>
+
+    <!-- ROUNDS -->
+    <div id="tab-rounds" class="tab">
+      <h2>Race Rounds</h2>
+      <div class="card">
+        <h3>Create New Round</h3>
+        <div class="row">
+          <div class="field"><label>Round Name</label><input type="text" id="rnd-name" placeholder="Round 1 — Spa" onkeydown="if(event.key==='Enter')createRound()"></div>
+          <div class="field field-sm"><label>Date</label><input type="date" id="rnd-date"></div>
+          <button class="btn-primary" onclick="createRound()">Create Round</button>
+        </div>
+      </div>
+      <div id="rounds-list"></div>
+    </div>
+
+    <!-- STANDINGS -->
+    <div id="tab-standings" class="tab">
+      <h2>Championship Standings</h2>
+      <div class="section-tabs" id="standings-class-tabs"></div>
+      <div id="standings-content"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="tab-settings" class="tab">
+      <h2>Settings</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3>Points Table</h3>
+          <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Points per class finishing position. Edit or add rows, then click Save.</p>
+          <table><thead><tr><th>Position</th><th>Points</th><th></th></tr></thead>
+          <tbody id="points-table-body"></tbody></table>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn-secondary btn-sm" onclick="addPointsRow()">+ Add Position</button>
+            <button class="btn-primary btn-sm" onclick="savePointsTable()">Save Points Table</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Drop Rounds</h3>
+          <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Worst N rounds excluded from each driver's total.</p>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div class="field field-sm"><label>Drop worst N</label><input type="number" id="drop-rounds-input" min="0" max="10"></div>
+            <button class="btn-primary btn-sm" onclick="saveDropRounds()">Save</button>
+          </div>
+          <hr class="divider">
+          <h3>Admin Accounts</h3>
+          <p style="color:var(--muted);font-size:13px;margin-bottom:10px;">To add admins, share the app URL and have them register with the Create Account option on the login screen.</p>
+          <hr class="divider">
+          <h3>Reconfigure Firebase</h3>
+          <button class="btn-secondary btn-sm" onclick="reconfigureFirebase()">Update Firebase Config</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDKs (compat v9) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const CLASS_NAMES = ['Pro', 'Pro-Ben', 'Beneficiary', 'Open'];
+const DEFAULT_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const CONFIG_KEY = 'gt3_firebase_config';
+
+let db = null;
+let auth = null;
+let unsubRoster = null;
+let unsubRounds = null;
+let unsubSettings = null;
+
+// In-memory cache (populated by Firestore listeners)
+let roster = [];
+let rounds = [];
+let settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2 };
+
+// Temp store for in-progress import
+let pendingImport = null;
+
+// ============================================================
+// FIREBASE SETUP
+// ============================================================
+function getSavedConfig() {
+  try { return JSON.parse(localStorage.getItem(CONFIG_KEY)); } catch { return null; }
+}
+
+function saveFirebaseConfig() {
+  const raw = document.getElementById('setup-config').value.trim();
+  try {
+    const cfg = JSON.parse(raw);
+    if (!cfg.apiKey || !cfg.projectId) throw new Error('Missing required fields');
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+    initFirebase(cfg);
+  } catch(e) {
+    document.getElementById('setup-error').textContent = 'Invalid config: ' + e.message;
+  }
+}
+
+function initFirebase(cfg) {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    showScreen('login');
+    setupAuthListener();
+  } catch(e) {
+    showScreen('setup');
+    document.getElementById('setup-error').textContent = 'Firebase error: ' + e.message;
+  }
+}
+
+function reconfigureFirebase() {
+  localStorage.removeItem(CONFIG_KEY);
+  location.reload();
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+function setupAuthListener() {
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      document.getElementById('user-email-display').textContent = user.email;
+      showScreen('app');
+      startListeners();
+    } else {
+      stopListeners();
+      showScreen('login');
+    }
+  });
+}
+
+function showLogin() {
+  document.getElementById('login-form').style.display = '';
+  document.getElementById('register-form').style.display = 'none';
+  document.getElementById('auth-error').textContent = '';
+}
+
+function showRegister() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('register-form').style.display = '';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  document.getElementById('auth-error').textContent = '';
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch(e) {
+    document.getElementById('auth-error').textContent = friendlyAuthError(e.code);
+  }
+}
+
+async function doRegister() {
+  const email = document.getElementById('reg-email').value.trim();
+  const pw = document.getElementById('reg-password').value;
+  const pw2 = document.getElementById('reg-password2').value;
+  document.getElementById('auth-error').textContent = '';
+  if (pw !== pw2) { document.getElementById('auth-error').textContent = 'Passwords do not match'; return; }
+  if (pw.length < 6) { document.getElementById('auth-error').textContent = 'Password must be at least 6 characters'; return; }
+  try {
+    await auth.createUserWithEmailAndPassword(email, pw);
+  } catch(e) {
+    document.getElementById('auth-error').textContent = friendlyAuthError(e.code);
+  }
+}
+
+async function doLogout() {
+  await auth.signOut();
+}
+
+function friendlyAuthError(code) {
+  const map = {
+    'auth/invalid-email': 'Invalid email address.',
+    'auth/user-not-found': 'No account found with that email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/too-many-requests': 'Too many attempts. Try again later.',
+    'auth/invalid-credential': 'Invalid email or password.',
+  };
+  return map[code] || 'Authentication error: ' + code;
+}
+
+// ============================================================
+// FIRESTORE LISTENERS
+// ============================================================
+function setSyncing(active) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if (!dot) return;
+  dot.classList.toggle('syncing', active);
+  label.textContent = active ? 'Syncing…' : 'Live';
+}
+
+function startListeners() {
+  unsubRoster = db.collection('roster').orderBy('name').onSnapshot(snap => {
+    roster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+  }, err => console.error('Roster listener error', err));
+
+  unsubRounds = db.collection('rounds').orderBy('createdAt').onSnapshot(snap => {
+    rounds = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+  }, err => console.error('Rounds listener error', err));
+
+  unsubSettings = db.collection('settings').doc('config').onSnapshot(snap => {
+    if (snap.exists) {
+      const data = snap.data();
+      settings.pointsTable = data.pointsTable || [...DEFAULT_POINTS];
+      settings.dropRounds = data.dropRounds !== undefined ? data.dropRounds : 2;
+    }
+    renderAll();
+  }, err => console.error('Settings listener error', err));
+}
+
+function stopListeners() {
+  if (unsubRoster) { unsubRoster(); unsubRoster = null; }
+  if (unsubRounds) { unsubRounds(); unsubRounds = null; }
+  if (unsubSettings) { unsubSettings(); unsubSettings = null; }
+}
+
+// ============================================================
+// SCREENS & TABS
+// ============================================================
+function showScreen(name) {
+  ['loading','setup','login','app'].forEach(s =>
+    document.getElementById('screen-' + s).style.display = s === name ? '' : 'none'
+  );
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const idx = { roster: 0, rounds: 1, standings: 2, settings: 3 };
+  document.querySelectorAll('nav button')[idx[name]].classList.add('active');
+  renderAll();
+}
+
+// ============================================================
+// ROSTER
+// ============================================================
+async function addDriver() {
+  const name = document.getElementById('r-name').value.trim();
+  const custId = document.getElementById('r-custid').value.trim();
+  const cls = document.getElementById('r-class').value;
+  if (!name) { toast('Enter a driver name', 'error'); return; }
+  const dup = roster.find(d => d.name.toLowerCase() === name.toLowerCase());
+  if (dup) { toast('Driver already exists', 'error'); return; }
+  setSyncing(true);
+  try {
+    await db.collection('roster').add({ name, custId, cls, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    document.getElementById('r-name').value = '';
+    document.getElementById('r-custid').value = '';
+    toast('Driver added', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+async function deleteDriver(id) {
+  if (!confirm('Remove this driver from the roster?')) return;
+  setSyncing(true);
+  try {
+    await db.collection('roster').doc(id).delete();
+    toast('Driver removed');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+function renderRoster() {
+  const el = document.getElementById('roster-classes');
+  if (!el) return;
+  if (roster.length === 0) {
+    el.innerHTML = `<div class="empty-state"><p style="font-size:15px;margin-bottom:6px;">No drivers yet</p><p>Add drivers above to get started.</p></div>`;
+    return;
+  }
+  let html = '';
+  for (const cls of CLASS_NAMES) {
+    const drivers = roster.filter(d => d.cls === cls);
+    if (drivers.length === 0) continue;
+    html += `<div style="padding:16px 20px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span class="class-badge class-${cls.replace(' ','-')}">${cls}</span>
+        <span style="color:var(--muted);font-size:13px;">${drivers.length} driver${drivers.length!==1?'s':''}</span>
+      </div>
+      <table><thead><tr><th>Name</th><th>Customer ID</th><th></th></tr></thead><tbody>`;
+    for (const d of drivers) {
+      html += `<tr>
+        <td>${esc(d.name)}</td>
+        <td>${d.custId ? esc(d.custId) : '<span style="color:var(--muted)">—</span>'}</td>
+        <td style="text-align:right">
+          <button class="btn-secondary btn-sm" onclick="editDriverModal('${d.id}')">Edit</button>
+          <button class="btn-danger btn-sm" style="margin-left:6px" onclick="deleteDriver('${d.id}')">Remove</button>
+        </td>
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+  }
+  el.innerHTML = html;
+}
+
+function editDriverModal(id) {
+  const d = roster.find(r => r.id === id);
+  if (!d) return;
+  const clsOpts = CLASS_NAMES.map(c => `<option value="${c}" ${c===d.cls?'selected':''}>${c}</option>`).join('');
+  showModal(`
+    <h3>Edit Driver</h3>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field"><label>Name</label><input type="text" id="ed-name" value="${esc(d.name)}"></div>
+      <div class="field"><label>Customer ID</label><input type="text" id="ed-custid" value="${esc(d.custId||'')}"></div>
+      <div class="field"><label>Class</label><select id="ed-cls">${clsOpts}</select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveEditDriver('${id}')">Save</button>
+    </div>
+  `);
+}
+
+async function saveEditDriver(id) {
+  const name = document.getElementById('ed-name').value.trim();
+  if (!name) { toast('Name required', 'error'); return; }
+  setSyncing(true);
+  try {
+    await db.collection('roster').doc(id).update({
+      name,
+      custId: document.getElementById('ed-custid').value.trim(),
+      cls: document.getElementById('ed-cls').value
+    });
+    closeModal();
+    toast('Driver updated', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+// ============================================================
+// ROUNDS
+// ============================================================
+async function createRound() {
+  const name = document.getElementById('rnd-name').value.trim();
+  const date = document.getElementById('rnd-date').value;
+  if (!name) { toast('Enter a round name', 'error'); return; }
+  setSyncing(true);
+  try {
+    await db.collection('rounds').add({ name, date, results: [], createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    document.getElementById('rnd-name').value = '';
+    toast('Round created', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+async function deleteRound(id) {
+  if (!confirm('Delete this round and all its results?')) return;
+  setSyncing(true);
+  try {
+    await db.collection('rounds').doc(id).delete();
+    toast('Round deleted');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+function renderRounds() {
+  const el = document.getElementById('rounds-list');
+  if (!el) return;
+  if (rounds.length === 0) {
+    el.innerHTML = `<div class="empty-state"><p style="font-size:15px;margin-bottom:6px;">No rounds yet</p><p>Create a round above, then import results.</p></div>`;
+    return;
+  }
+  el.innerHTML = rounds.map((rnd, idx) => {
+    const hasResults = rnd.results && rnd.results.length > 0;
+    return `
+    <div class="round-item">
+      <div class="round-item-header" onclick="toggleRound('${rnd.id}')">
+        <div class="round-number">${idx+1}</div>
+        <div class="round-name">${esc(rnd.name)}</div>
+        ${rnd.date ? `<div class="round-meta">${formatDate(rnd.date)}</div>` : ''}
+        <div class="round-meta">${hasResults ? (rnd.results.length + ' result' + (rnd.results.length!==1?'s':'')) : 'No results'}</div>
+        <svg class="chevron" id="chev-${rnd.id}" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="round-item-body" id="rnd-body-${rnd.id}">
+        <div class="row" style="margin-bottom:14px;">
+          <button class="btn-secondary btn-sm" onclick="openImportModal('${rnd.id}')">&#8679; Import iRacing JSON</button>
+          <button class="btn-secondary btn-sm" onclick="openManualEntryModal('${rnd.id}')">Manual Entry</button>
+          <button class="btn-danger btn-sm" onclick="deleteRound('${rnd.id}')">Delete Round</button>
+        </div>
+        ${renderRoundResults(rnd)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRound(id) {
+  const body = document.getElementById('rnd-body-' + id);
+  const chev = document.getElementById('chev-' + id);
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chev && chev.classList.toggle('open', !isOpen);
+}
+
+function renderRoundResults(rnd) {
+  if (!rnd.results || rnd.results.length === 0) return '<p style="color:var(--muted);font-size:13px;padding:8px 0;">No results yet. Use Import or Manual Entry.</p>';
+  const pts = settings.pointsTable;
+  const byClass = {};
+  CLASS_NAMES.forEach(c => byClass[c] = []);
+  for (const r of rnd.results) {
+    const driver = roster.find(d => d.id === r.driverId);
+    if (driver) byClass[driver.cls].push(r);
+  }
+  CLASS_NAMES.forEach(cls => {
+    byClass[cls].sort((a, b) => (a.dnf?1:0) - (b.dnf?1:0) || a.overallPos - b.overallPos);
+  });
+  let html = '';
+  for (const cls of CLASS_NAMES) {
+    const entries = byClass[cls];
+    if (!entries.length) continue;
+    html += `<div style="margin-bottom:16px;">
+      <h3><span class="class-badge class-${cls.replace(' ','-')}" style="margin-right:8px">${cls}</span></h3>
+      <table><thead><tr><th>Pos</th><th>Driver</th><th>Overall</th><th>Points</th><th></th></tr></thead><tbody>`;
+    entries.forEach((r, i) => {
+      const driver = roster.find(d => d.id === r.driverId);
+      const clsPts = r.dnf ? 0 : (pts[i] || 0);
+      const posClass = i===0?'pos-1':i===1?'pos-2':i===2?'pos-3':'pos-other';
+      html += `<tr>
+        <td><span class="pos-badge ${posClass}">${r.dnf?'DNF':i+1}</span></td>
+        <td>${driver ? esc(driver.name) : '<span style="color:var(--danger)">Unknown</span>'}</td>
+        <td style="color:var(--muted)">${r.dnf?'DNF':r.overallPos}</td>
+        <td class="points-cell">${clsPts}</td>
+        <td style="text-align:right"><button class="btn-danger btn-sm" onclick="removeResult('${rnd.id}','${r.driverId}')">&#215;</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  return html;
+}
+
+async function removeResult(roundId, driverId) {
+  const rnd = rounds.find(r => r.id === roundId);
+  if (!rnd) return;
+  const newResults = (rnd.results || []).filter(r => r.driverId !== driverId);
+  setSyncing(true);
+  try {
+    await db.collection('rounds').doc(roundId).update({ results: newResults });
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+// ============================================================
+// IMPORT iRacing JSON
+// ============================================================
+function openImportModal(roundId) {
+  const rnd = rounds.find(r => r.id === roundId);
+  showModal(`
+    <h3>Import iRacing Results — ${esc(rnd?.name || '')}</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">
+      Download the race result JSON from the iRacing website (My Results → select race → Export / Download JSON), then upload it here.
+    </p>
+    <div class="upload-zone" id="upload-zone"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event,'${roundId}')"
+      onclick="document.getElementById('json-file-input').click()">
+      <div style="font-size:24px;margin-bottom:8px;">&#8679;</div>
+      <div style="font-weight:600;margin-bottom:4px;">Click or drag &amp; drop JSON file</div>
+      <div style="font-size:12px;color:var(--muted)">iRacing race result .json file</div>
+    </div>
+    <input type="file" id="json-file-input" accept=".json" style="display:none"
+      onchange="handleFileInput(event,'${roundId}')">
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancel</button></div>
+  `);
+}
+
+function handleDrop(e, roundId) {
+  e.preventDefault();
+  document.getElementById('upload-zone')?.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) processJsonFile(file, roundId);
+}
+
+function handleFileInput(e, roundId) {
+  const file = e.target.files[0];
+  if (file) processJsonFile(file, roundId);
+}
+
+function processJsonFile(file, roundId) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parseIracingJson(JSON.parse(e.target.result), roundId);
+    } catch { toast('Invalid JSON file', 'error'); }
+  };
+  reader.readAsText(file);
+}
+
+function parseIracingJson(json, roundId) {
+  let results = null;
+  if (json.session_results) {
+    const raceSession = json.session_results.find(s =>
+      (s.simsession_type_name || '').toLowerCase() === 'race' ||
+      s.simsession_type === 6 || s.simsession_type === 4
+    ) || json.session_results[json.session_results.length - 1];
+    if (raceSession) results = raceSession.results;
+  }
+  if (!results && Array.isArray(json.results)) results = json.results;
+  if (!results || !results.length) { toast('Could not find race results in this file.', 'error'); return; }
+
+  results.sort((a, b) => {
+    if (a.finish_pos === undefined) return 1;
+    if (b.finish_pos === undefined) return -1;
+    return a.finish_pos - b.finish_pos;
+  });
+
+  const matched = [], unmatched = [];
+  for (const r of results) {
+    const name = (r.display_name || r.driver_name || '').trim();
+    const custId = String(r.cust_id || r.custid || '').trim();
+    const overallPos = (r.finish_pos !== undefined ? r.finish_pos + 1 : r.finishing_position) || 0;
+    const dnf = r.reason_out && r.reason_out.toLowerCase() !== 'running' && r.reason_out.toLowerCase() !== '';
+
+    let driver = null;
+    if (custId) driver = roster.find(d => d.custId && d.custId.trim() === custId);
+    if (!driver && name) driver = roster.find(d => d.name.trim().toLowerCase() === name.toLowerCase());
+
+    if (driver) matched.push({ driverId: driver.id, name: driver.name, overallPos, dnf, rawName: name });
+    else if (name) unmatched.push({ rawName: name, custId, overallPos, dnf });
+  }
+
+  pendingImport = { roundId, matched, unmatched };
+  showImportReviewModal();
+}
+
+function showImportReviewModal() {
+  const { roundId, matched, unmatched } = pendingImport;
+  const rnd = rounds.find(r => r.id === roundId);
+
+  const matchedHtml = matched.length ? matched.map(m => `
+    <div class="match-row">
+      <span class="match-name">${esc(m.name)}</span>
+      <span class="class-badge class-${getDriverClass(m.driverId).replace(' ','-')}">${getDriverClass(m.driverId)}</span>
+      <span style="color:var(--muted);font-size:12px;">P${m.overallPos}${m.dnf?' (DNF)':''}</span>
+    </div>`).join('') : '<p style="color:var(--muted);font-size:13px;">None matched.</p>';
+
+  const unmatchedHtml = unmatched.map((u, i) => {
+    const opts = ['<option value="">— Skip —</option>',
+      ...roster.map(d => `<option value="${d.id}">${esc(d.name)} (${d.cls})</option>`)].join('');
+    return `<div class="match-row">
+      <span class="match-name">${esc(u.rawName)} — P${u.overallPos}${u.dnf?' (DNF)':''}</span>
+      <select style="width:200px;font-size:13px;" id="um-${i}">${opts}</select>
+    </div>`;
+  }).join('');
+
+  showModal(`
+    <h3>Review Import — ${esc(rnd?.name || '')}</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">${matched.length} matched · ${unmatched.length} unmatched</p>
+    ${unmatched.length ? `<h3 style="margin-bottom:8px;">Unmatched (${unmatched.length})</h3>${unmatchedHtml}<hr class="divider">` : ''}
+    <h3 style="margin-bottom:8px;">Matched (${matched.length})</h3>${matchedHtml}
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="commitImport()">Import Results</button>
+    </div>
+  `);
+}
+
+async function commitImport() {
+  const { roundId, matched, unmatched } = pendingImport;
+  const extra = unmatched.map((u, i) => {
+    const sel = document.getElementById('um-' + i);
+    return sel?.value ? { driverId: sel.value, overallPos: u.overallPos, dnf: u.dnf } : null;
+  }).filter(Boolean);
+
+  const all = [...matched.map(m => ({ driverId: m.driverId, overallPos: m.overallPos, dnf: m.dnf })), ...extra];
+  const seen = new Set();
+  const deduped = all.filter(r => { if (seen.has(r.driverId)) return false; seen.add(r.driverId); return true; });
+
+  setSyncing(true);
+  try {
+    await db.collection('rounds').doc(roundId).update({ results: deduped });
+    closeModal();
+    toast(`Imported ${deduped.length} result(s)`, 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+  pendingImport = null;
+}
+
+// ============================================================
+// MANUAL ENTRY
+// ============================================================
+function openManualEntryModal(roundId) {
+  const rnd = rounds.find(r => r.id === roundId);
+  const existingIds = new Set((rnd?.results || []).map(r => r.driverId));
+  const driverOpts = ['<option value="">— Select driver —</option>',
+    ...roster.map(d => `<option value="${d.id}" ${existingIds.has(d.id)?'disabled':''}>
+      ${esc(d.name)} (${d.cls})${existingIds.has(d.id)?' ✓':''}</option>`)
+  ].join('');
+  showModal(`
+    <h3>Manual Entry — ${esc(rnd?.name || '')}</h3>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="field"><label>Driver</label><select id="me-driver">${driverOpts}</select></div>
+      <div class="row">
+        <div class="field"><label>Overall Finishing Position</label><input type="number" id="me-pos" min="1" placeholder="1"></div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:1px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+            <input type="checkbox" id="me-dnf" style="width:auto"> DNF
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="commitManualEntry('${roundId}')">Add Result</button>
+    </div>
+  `);
+}
+
+async function commitManualEntry(roundId) {
+  const rnd = rounds.find(r => r.id === roundId);
+  const driverId = document.getElementById('me-driver').value;
+  const pos = parseInt(document.getElementById('me-pos').value) || 99;
+  const dnf = document.getElementById('me-dnf').checked;
+  if (!driverId) { toast('Select a driver', 'error'); return; }
+  const existing = rnd?.results || [];
+  if (existing.find(r => r.driverId === driverId)) { toast('Driver already has a result', 'error'); return; }
+  setSyncing(true);
+  try {
+    await db.collection('rounds').doc(roundId).update({
+      results: [...existing, { driverId, overallPos: pos, dnf }]
+    });
+    closeModal();
+    toast('Result added', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+// ============================================================
+// STANDINGS
+// ============================================================
+let standingsClass = CLASS_NAMES[0];
+
+function renderStandingsTabs() {
+  const el = document.getElementById('standings-class-tabs');
+  if (!el) return;
+  el.innerHTML = CLASS_NAMES.map(cls =>
+    `<button class="section-tab ${cls===standingsClass?'active':''}" onclick="setStandingsClass('${cls}')">${cls}</button>`
+  ).join('');
+}
+
+function setStandingsClass(cls) {
+  standingsClass = cls;
+  renderStandingsTabs();
+  renderStandingsContent();
+}
+
+function computeStandings(cls) {
+  const drivers = roster.filter(d => d.cls === cls);
+  const pts = settings.pointsTable;
+  const drop = settings.dropRounds;
+  const roundPoints = {};
+
+  for (const rnd of rounds) {
+    const classResults = (rnd.results || [])
+      .filter(r => { const d = roster.find(x => x.id === r.driverId); return d && d.cls === cls; })
+      .sort((a, b) => (a.dnf?1:0) - (b.dnf?1:0) || a.overallPos - b.overallPos);
+    classResults.forEach((r, i) => {
+      if (!roundPoints[r.driverId]) roundPoints[r.driverId] = {};
+      roundPoints[r.driverId][rnd.id] = r.dnf ? 0 : (pts[i] || 0);
+    });
+  }
+
+  return drivers.map(d => {
+    const allPts = rounds.map(rnd => roundPoints[d.id]?.[rnd.id] ?? null);
+    const scored = allPts.filter(p => p !== null);
+    let dropIndices = [], total = 0;
+    if (drop > 0 && scored.length > drop) {
+      const dropVals = [...scored].sort((a,b) => a-b).slice(0, drop);
+      const usedDrops = [...dropVals];
+      allPts.forEach((p, i) => {
+        if (p === null) return;
+        const idx = usedDrops.indexOf(p);
+        if (idx !== -1) { dropIndices.push(i); usedDrops.splice(idx, 1); }
+      });
+      total = allPts.reduce((s, p, i) => s + (p !== null && !dropIndices.includes(i) ? p : 0), 0);
+    } else {
+      total = scored.reduce((a,b) => a+b, 0);
+    }
+    return { driver: d, allPts, total, dropIndices };
+  }).sort((a,b) => b.total - a.total);
+}
+
+function renderStandingsContent() {
+  const el = document.getElementById('standings-content');
+  if (!el) return;
+  if (rounds.length === 0) { el.innerHTML = '<div class="empty-state"><p>No rounds yet.</p></div>'; return; }
+  const standings = computeStandings(standingsClass);
+  if (!standings.length) { el.innerHTML = '<div class="empty-state"><p>No drivers in this class.</p></div>'; return; }
+
+  const roundHeaders = rounds.map((rnd, i) =>
+    `<th style="text-align:center" title="${esc(rnd.name)}">${rnd.name.length > 12 ? 'R'+(i+1) : esc(rnd.name)}</th>`
+  ).join('');
+
+  const rows = standings.map((s, pos) => {
+    const posBadge = pos===0?'pos-1':pos===1?'pos-2':pos===2?'pos-3':'pos-other';
+    const roundCells = s.allPts.map((p, i) => {
+      if (p === null) return '<td style="color:var(--muted);text-align:center">—</td>';
+      const isDrop = s.dropIndices.includes(i);
+      return `<td class="${isDrop?'points-dropped':'points-cell'}" style="text-align:center">${p}${isDrop?' &#9662;':''}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="text-align:center"><span class="pos-badge ${posBadge}">${pos+1}</span></td>
+      <td>${esc(s.driver.name)}</td>
+      ${roundCells}
+      <td class="total-cell" style="text-align:center">${s.total}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="card" style="padding:0;overflow:auto;">
+      <table>
+        <thead><tr><th style="text-align:center">Pos</th><th>Driver</th>${roundHeaders}<th style="text-align:center">Total</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${settings.dropRounds > 0 ? `<p style="color:var(--muted);font-size:12px;margin-top:8px;">&#9662; Dropped rounds not counted in total (worst ${settings.dropRounds}).</p>` : ''}
+  `;
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+let localPointsTable = [...DEFAULT_POINTS];
+
+function renderSettings() {
+  localPointsTable = [...settings.pointsTable];
+  const tbody = document.getElementById('points-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = localPointsTable.map((pts, i) => `
+    <tr>
+      <td>P${i+1}</td>
+      <td><input type="number" value="${pts}" min="0" style="width:80px"
+        onchange="localPointsTable[${i}]=parseInt(this.value)||0"></td>
+      <td style="text-align:right"><button class="btn-danger btn-sm" onclick="removePointsRow(${i})">&#215;</button></td>
+    </tr>`).join('');
+  const dropInput = document.getElementById('drop-rounds-input');
+  if (dropInput) dropInput.value = settings.dropRounds;
+}
+
+function addPointsRow() {
+  localPointsTable.push(0);
+  renderSettings();
+}
+
+function removePointsRow(i) {
+  localPointsTable.splice(i, 1);
+  renderSettings();
+}
+
+async function savePointsTable() {
+  setSyncing(true);
+  try {
+    await db.collection('settings').doc('config').set({ pointsTable: localPointsTable, dropRounds: settings.dropRounds }, { merge: true });
+    toast('Points table saved', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+async function saveDropRounds() {
+  const val = parseInt(document.getElementById('drop-rounds-input').value) || 0;
+  setSyncing(true);
+  try {
+    await db.collection('settings').doc('config').set({ dropRounds: val, pointsTable: settings.pointsTable }, { merge: true });
+    toast('Drop rounds saved', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function getDriverClass(id) {
+  const d = roster.find(r => r.id === id);
+  return d ? d.cls : '';
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const parts = d.split('-');
+  if (parts.length !== 3) return d;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(parts[2])} ${months[parseInt(parts[1])-1]} ${parts[0]}`;
+}
+
+// ============================================================
+// MODAL & TOAST
+// ============================================================
+function showModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+let toastTimer;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// RENDER ALL
+// ============================================================
+function renderAll() {
+  renderRoster();
+  renderRounds();
+  renderStandingsTabs();
+  renderStandingsContent();
+  renderSettings();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+const savedConfig = getSavedConfig();
+if (savedConfig) {
+  initFirebase(savedConfig);
+} else {
+  showScreen('setup');
+}
+
+const dateInput = document.getElementById('rnd-date');
+if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
