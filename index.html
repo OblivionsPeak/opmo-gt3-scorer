@@ -373,6 +373,8 @@ service cloud.firestore {
             <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
               <div class="field field-sm"><label>Fast Lap</label><input type="number" id="fast-lap-pts-input" min="0" max="25"></div>
               <div class="field field-sm"><label>Safe Race</label><input type="number" id="safe-race-pts-input" min="0" max="25"></div>
+              <div class="field field-sm"><label>DNF &gt;50%</label><input type="number" id="dnf-over-pts-input" min="0" max="25"></div>
+              <div class="field field-sm"><label>DNF &lt;50%</label><input type="number" id="dnf-under-pts-input" min="0" max="25"></div>
               <button class="btn-primary btn-sm" onclick="saveBonusPoints()">Save</button>
             </div>
           </div>
@@ -443,7 +445,7 @@ let unsubSettings = null;
 // In-memory cache (populated by Firestore listeners)
 let roster = [];
 let rounds = [];
-let settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2, allowedEmails: [], discordWebhook: '', fastLapPoints: 1, safeRacePoints: 1 };
+let settings = { pointsTable: [...DEFAULT_POINTS], dropRounds: 2, allowedEmails: [], discordWebhook: '', fastLapPoints: 1, safeRacePoints: 1, dnfOverPoints: 2, dnfUnderPoints: 1 };
 
 // Temp store for in-progress import
 let pendingImport = null;
@@ -594,6 +596,8 @@ function startListeners() {
       settings.discordWebhook = data.discordWebhook || '';
       settings.fastLapPoints = data.fastLapPoints !== undefined ? data.fastLapPoints : 1;
       settings.safeRacePoints = data.safeRacePoints !== undefined ? data.safeRacePoints : 1;
+      settings.dnfOverPoints = data.dnfOverPoints !== undefined ? data.dnfOverPoints : 2;
+      settings.dnfUnderPoints = data.dnfUnderPoints !== undefined ? data.dnfUnderPoints : 1;
     }
     renderAll();
   }, err => console.error('Settings listener error', err));
@@ -805,17 +809,25 @@ function renderRoundResults(rnd) {
     if (!entries.length) continue;
     html += `<div style="margin-bottom:16px;">
       <h3><span class="class-badge class-${cls.replace(' ','-')}" style="margin-right:8px">${cls}</span></h3>
-      <table><thead><tr><th>Pos</th><th>Driver</th><th>Overall</th><th>Points</th><th></th></tr></thead><tbody>`;
+      <table><thead><tr><th>Pos</th><th>Driver</th><th>Overall</th><th>Status</th><th>Points</th><th></th></tr></thead><tbody>`;
     entries.forEach((r, i) => {
       const driver = roster.find(d => d.id === r.driverId);
-      const clsPts = r.dnf ? 0 : (pts[i] || 0);
+      const clsPts = r.dnf
+        ? (r.dnfType === 'over' ? settings.dnfOverPoints : r.dnfType === 'under' ? settings.dnfUnderPoints : 0)
+        : (pts[i] || 0);
       const posClass = i===0?'pos-1':i===1?'pos-2':i===2?'pos-3':'pos-other';
+      const statusLabel = r.dnf ? (r.dnfType === 'over' ? 'DNF >50%' : r.dnfType === 'under' ? 'DNF <50%' : 'DNF') : 'Finished';
+      const statusColor = r.dnf ? 'var(--danger)' : 'var(--success)';
       html += `<tr>
         <td><span class="pos-badge ${posClass}">${r.dnf?'DNF':i+1}</span></td>
         <td>${driver ? esc(driver.name) : '<span style="color:var(--danger)">Unknown</span>'}</td>
-        <td style="color:var(--muted)">${r.dnf?'DNF':r.overallPos}</td>
+        <td style="color:var(--muted)">${r.overallPos}</td>
+        <td style="color:${statusColor};font-size:12px;">${statusLabel}</td>
         <td class="points-cell">${clsPts}</td>
-        <td style="text-align:right"><button class="btn-danger btn-sm" onclick="removeResult('${rnd.id}','${r.driverId}')">&#215;</button></td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button class="btn-secondary btn-sm" onclick="openEditResultModal('${rnd.id}','${r.driverId}')">Edit</button>
+          <button class="btn-danger btn-sm" style="margin-left:4px" onclick="removeResult('${rnd.id}','${r.driverId}')">&#215;</button>
+        </td>
       </tr>`;
     });
     html += `</tbody></table></div>`;
@@ -1025,6 +1037,14 @@ async function commitImport() {
 // ============================================================
 // MANUAL ENTRY
 // ============================================================
+function finishTypeOpts(selected) {
+  return [
+    ['finish',    'Finished'],
+    ['dnf_over',  'DNF — completed >50%'],
+    ['dnf_under', 'DNF — completed <50%'],
+  ].map(([v, l]) => `<option value="${v}" ${selected===v?'selected':''}>${l}</option>`).join('');
+}
+
 function openManualEntryModal(roundId) {
   const rnd = rounds.find(r => r.id === roundId);
   const existingIds = new Set((rnd?.results || []).map(r => r.driverId));
@@ -1038,11 +1058,7 @@ function openManualEntryModal(roundId) {
       <div class="field"><label>Driver</label><select id="me-driver">${driverOpts}</select></div>
       <div class="row">
         <div class="field"><label>Overall Finishing Position</label><input type="number" id="me-pos" min="1" placeholder="1"></div>
-        <div style="display:flex;align-items:flex-end;padding-bottom:1px;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
-            <input type="checkbox" id="me-dnf" style="width:auto"> DNF
-          </label>
-        </div>
+        <div class="field"><label>Finish Status</label><select id="me-finish">${finishTypeOpts('finish')}</select></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -1056,19 +1072,61 @@ async function commitManualEntry(roundId) {
   const rnd = rounds.find(r => r.id === roundId);
   const driverId = document.getElementById('me-driver').value;
   const pos = parseInt(document.getElementById('me-pos').value) || 99;
-  const dnf = document.getElementById('me-dnf').checked;
+  const finishType = document.getElementById('me-finish').value;
   if (!driverId) { toast('Select a driver', 'error'); return; }
   const existing = rnd?.results || [];
   if (existing.find(r => r.driverId === driverId)) { toast('Driver already has a result', 'error'); return; }
+  const result = buildResult(driverId, pos, finishType);
   setSyncing(true);
   try {
-    await db.collection('rounds').doc(roundId).update({
-      results: [...existing, { driverId, overallPos: pos, dnf }]
-    });
+    await db.collection('rounds').doc(roundId).update({ results: [...existing, result] });
     closeModal();
     toast('Result added', 'success');
   } catch(e) { toast('Error: ' + e.message, 'error'); }
   setSyncing(false);
+}
+
+function openEditResultModal(roundId, driverId) {
+  const rnd = rounds.find(r => r.id === roundId);
+  const result = rnd?.results?.find(r => r.driverId === driverId);
+  const driver = roster.find(d => d.id === driverId);
+  if (!result || !driver) return;
+  const currentType = result.dnfType === 'over' ? 'dnf_over' : result.dnfType === 'under' ? 'dnf_under' : result.dnf ? 'dnf_over' : 'finish';
+  showModal(`
+    <h3>Edit Result — ${esc(driver.name)}</h3>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="row">
+        <div class="field"><label>Overall Finishing Position</label><input type="number" id="er-pos" min="1" value="${result.overallPos||''}"></div>
+        <div class="field"><label>Finish Status</label><select id="er-finish">${finishTypeOpts(currentType)}</select></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="commitEditResult('${roundId}','${driverId}')">Save</button>
+    </div>
+  `);
+}
+
+async function commitEditResult(roundId, driverId) {
+  const rnd = rounds.find(r => r.id === roundId);
+  if (!rnd) return;
+  const pos = parseInt(document.getElementById('er-pos').value) || 99;
+  const finishType = document.getElementById('er-finish').value;
+  const newResult = buildResult(driverId, pos, finishType);
+  const newResults = rnd.results.map(r => r.driverId === driverId ? newResult : r);
+  setSyncing(true);
+  try {
+    await db.collection('rounds').doc(roundId).update({ results: newResults });
+    closeModal();
+    toast('Result updated', 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  setSyncing(false);
+}
+
+function buildResult(driverId, pos, finishType) {
+  if (finishType === 'dnf_over') return { driverId, overallPos: pos, dnf: true, dnfType: 'over' };
+  if (finishType === 'dnf_under') return { driverId, overallPos: pos, dnf: true, dnfType: 'under' };
+  return { driverId, overallPos: pos, dnf: false, dnfType: null };
 }
 
 // ============================================================
@@ -1102,7 +1160,9 @@ function computeStandings(cls) {
       .sort((a, b) => (a.dnf?1:0) - (b.dnf?1:0) || a.overallPos - b.overallPos);
     classResults.forEach((r, i) => {
       if (!roundPoints[r.driverId]) roundPoints[r.driverId] = {};
-      roundPoints[r.driverId][rnd.id] = r.dnf ? 0 : (pts[i] || 0);
+      roundPoints[r.driverId][rnd.id] = r.dnf
+        ? (r.dnfType === 'over' ? settings.dnfOverPoints : r.dnfType === 'under' ? settings.dnfUnderPoints : 0)
+        : (pts[i] || 0);
     });
     // Fast lap bonus
     if (rnd.fastLapDriverId) {
@@ -1204,6 +1264,10 @@ function renderSettings() {
   if (flInput && !flInput.matches(':focus')) flInput.value = settings.fastLapPoints;
   const srInput = document.getElementById('safe-race-pts-input');
   if (srInput && !srInput.matches(':focus')) srInput.value = settings.safeRacePoints;
+  const dnfOverInput = document.getElementById('dnf-over-pts-input');
+  if (dnfOverInput && !dnfOverInput.matches(':focus')) dnfOverInput.value = settings.dnfOverPoints;
+  const dnfUnderInput = document.getElementById('dnf-under-pts-input');
+  if (dnfUnderInput && !dnfUnderInput.matches(':focus')) dnfUnderInput.value = settings.dnfUnderPoints;
 }
 
 function addPointsRow() {
@@ -1238,9 +1302,11 @@ async function saveDropRounds() {
 async function saveBonusPoints() {
   const fl = parseInt(document.getElementById('fast-lap-pts-input').value) || 0;
   const sr = parseInt(document.getElementById('safe-race-pts-input').value) || 0;
+  const dnfOver = parseInt(document.getElementById('dnf-over-pts-input').value) || 0;
+  const dnfUnder = parseInt(document.getElementById('dnf-under-pts-input').value) || 0;
   setSyncing(true);
   try {
-    await db.collection('settings').doc('config').set({ fastLapPoints: fl, safeRacePoints: sr }, { merge: true });
+    await db.collection('settings').doc('config').set({ fastLapPoints: fl, safeRacePoints: sr, dnfOverPoints: dnfOver, dnfUnderPoints: dnfUnder }, { merge: true });
     toast('Bonus points saved', 'success');
   } catch(e) { toast('Error: ' + e.message, 'error'); }
   setSyncing(false);
